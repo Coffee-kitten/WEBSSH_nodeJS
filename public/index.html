@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SSH Terminal</title>
+    <style>
+      body {
+        font-family: monospace;
+      }
+      #terminal {
+        width: 100%;
+        height: 300px;
+        border: 1px solid #000;
+        overflow-y: auto;
+      }
+      input {
+        width: 100%;
+        padding: 8px;
+        font-size: 16px;
+        margin-bottom: 8px;
+      }
+      .connection-info {
+        margin-bottom: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>SSH Terminal</h1>
+
+    <!-- 输入SSH连接信息 -->
+    <div class="connection-info">
+      <input type="text" id="host" placeholder="Host" />
+      <input type="text" id="port" placeholder="Port" />
+      <input type="text" id="username" placeholder="Username" />
+      <input type="password" id="password" placeholder="Password" />
+      <button id="connect-btn">Connect</button>
+    </div>
+
+    <div id="terminal"></div>
+    <input type="text" id="command" placeholder="Enter SSH command" disabled />
+    <script>
+      const terminal = document.getElementById("terminal");
+      const commandInput = document.getElementById("command");
+      const connectBtn = document.getElementById("connect-btn");
+      const ws = new WebSocket("ws://localhost:3000");
+
+      let connected = false;
+
+      ws.onopen = () => {
+        console.log("WebSocket 连接已建立。");
+      };
+
+      ws.onmessage = (event) => {
+        const message = event.data;
+        terminal.innerHTML += `<div>${message}</div>`;
+        terminal.scrollTop = terminal.scrollHeight;
+
+        // 如果连接成功，更新终端信息为“连接成功”
+        if (message === "SSH连接成功") {
+          terminal.innerHTML = "<div>连接成功</div>";
+          commandInput.disabled = false;
+          connectBtn.disabled = true;
+        } else if (message.startsWith("SSH连接错误")) {
+          terminal.innerHTML = `<div style="color: red;">${message}</div>`;
+          commandInput.disabled = true;
+          connectBtn.disabled = false;
+        }
+      };
+
+      connectBtn.addEventListener("click", () => {
+        const host = document.getElementById("host").value;
+        const port = document.getElementById("port").value;
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        if (host && username && password) {
+          // 发送连接信息到后端
+          const connectionInfo = { host, port, username, password };
+          ws.send(JSON.stringify(connectionInfo));
+
+          // 显示“连接中...”信息
+          terminal.innerHTML = "<div>连接中...</div>";
+
+          // 禁用输入框，直到连接成功
+          commandInput.disabled = true;
+          connectBtn.disabled = true;
+        } else {
+          alert("请填写完整的连接信息");
+        }
+      });
+
+      commandInput.addEventListener("keypress", (event) => {
+        if (event.key === "Enter" && commandInput.value) {
+          const command = commandInput.value;
+          ws.send(JSON.stringify({ command }));
+          commandInput.value = "";
+        }
+      });
+    </script>
+  </body>
+</html>
